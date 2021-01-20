@@ -1,0 +1,8 @@
+port: 8080
+attributes:
+  attr1: 1
+  attr2: 2
+labels:
+  core:
+    value: 2
+

@@ -1,0 +1,9 @@
+# shellcheck shell=bash
+
+yml.extract(){
+    :
+}
+
+yml.replace(){
+    :
+}

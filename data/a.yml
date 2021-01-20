@@ -1,0 +1,5 @@
+---
+metadata:
+  name: rss-site
+spec:
+  containers: 1

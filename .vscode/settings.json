@@ -1,0 +1,12 @@
+{
+    "files.defaultLanguage": "shellscript",
+    "files.associations": {
+        "**/*.yml": "yaml",
+        "**/*": "shellscript",
+        "**/*.awk": "awk",
+        "**/*.json": "json",
+        "**/*.md": "markdown"
+    },
+    "editor.detectIndentation": true,
+    "editor.tabSize": 4,
+}
