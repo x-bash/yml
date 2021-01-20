@@ -5,3 +5,14 @@ metadata:
   name: rss-site
   labels:
     app: web
+t: c
+spec:
+  containers:
+    - name: front-end
+      image: nginx
+      ports:
+        - containerPort: 80
+    - name: rss-reader
+      image: nickchase/rss-php-nginx:v1
+      ports:
+        - containerPort: 88

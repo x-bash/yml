@@ -4,7 +4,7 @@ BEGIN{
     RS="\034"
 
     out_format = false
-    dbg = true
+    dbg = false
 
     KEYPATH_SEP = "\034"
     # KEYPATH_SEP = ","
@@ -105,19 +105,18 @@ function yml_walk_array(keypath, least_indent,
 
 # tmp1, tmp2, tmp3 are for putkv
 function yml_walk_dict(keypath, least_indent,
-    nth, o_idx, res, detected_indent, cur_indent, result_key, result_colon, result_value, t0, t1   ){
+    nth, o_idx, res, detected_indent, cur_indent, result_key, result_colon, result_value, t0, t1, t2   ){
     nth = 0
     res = ""
 
     # Save first item index
     detected_indent = s_newline_idx - 1
-    debug("RESULT ROOT:\t|" keypath "|\t" detected_indent)
         
     while (1) {
         # cur_indent?
         cur_indent = s_newline_idx - 1
-        debug("ITERATION:\t|" keypath "|\t" cur_indent "\t" detected_indent "\t|" substr(s, s_idx, 10))
-        if (cur_indent < detected_indent) {
+
+        if (cur_indent != detected_indent) {
             break
         }
 
@@ -137,14 +136,13 @@ function yml_walk_dict(keypath, least_indent,
             break
         }
 
-        # result_value
+        # result_key
         result_key = substr(s, o_idx, s_idx - o_idx)
 
         # Must following with ": "
         s_idx += 1
         s_newline_idx += 1
 
-        debug("RESULT key:\t" keypath "\t" result_key "\t" detected_indent)
         nth ++
         if (yml_reach_indent_boundary())    t1 = result
         if (yml_walk_value(keypath KEYPATH_SEP result_key, detected_indent + 1) == true) {
@@ -154,10 +152,11 @@ function yml_walk_dict(keypath, least_indent,
             result_value = "~"
         }
 
+        t2 = ""
         if (yml_reach_newline())            t2 = result
         if (yml_reach_indent_boundary())    t2 = t2 result  # Make sure s_newline_idx could be done.
 
-        res = res result_key ": " t1 result_value t2
+        res = res result_key ":" t1 result_value t2
     }
 
     if (nth == 0) return false
@@ -178,9 +177,11 @@ function yml_reach_newline(){
 }
 
 function yml_reach_indent_boundary(     res){
+    res = ""
     if (yml_reach_newline()){
+        res = result
         if (match(substr(s, s_idx), /^[ ]+/)){
-            result = result substr(s, s_idx, RLENGTH)
+            result = res substr(s, s_idx, RLENGTH)
             s_newline_idx += RLENGTH
             s_idx += RLENGTH
             return true
@@ -240,9 +241,9 @@ function yml_walk_value(keypath, indent,    o_idx, o_idx_2, res){
     # String without quote
     # TODO: Get rid of leading spaces and tailing spaces
     if (0 != match(substr(s, s_idx), /^[^\n]+\n/)) {
-        result = substr(s, s_idx, RLENGTH)
-        s_idx += RLENGTH
-        s_newline_idx += RLENGTH # meaning less
+        result = substr(s, s_idx, RLENGTH - 1)
+        s_idx += RLENGTH - 1
+        s_newline_idx += RLENGTH - 1 # meaning less
         debug("detect a NO-QUOTE STRING. " keypath)
         return true
     }
