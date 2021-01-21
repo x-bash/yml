@@ -271,7 +271,7 @@ function yml_walk_value(keypath, indent,       ss, out, s_newline_idx_origin) {
             gsub(ss, "\n", out)
             if (opv2 == "kv") { print keypath "\t-->\t" out }
             else if (opv2 == "k") { print keypath }
-            else  { print result }
+            else  { print out }
         }
     } else if (op == OP_FLAT) {
         ss = "\n" sprintf("%-" (s_newline_idx_origin-1) "s", "")
