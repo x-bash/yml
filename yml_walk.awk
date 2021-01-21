@@ -251,14 +251,17 @@ function yml_reach_indent_boundary(     res){
 }
 
 # Intercept key value
-function yml_walk_value(keypath, indent) {
+function yml_walk_value(keypath, indent,       ss, out, s_newline_idx_origin) {
+    s_newline_idx_origin = s_newline_idx
     if (false == _yml_walk_value(keypath, indent)) return false
 
     if (op == OP_EXTRACT) {
         if (match(keypath, opv1)) {
-            if (opv2 == "kv") { print keypath "\t-->\t" result }
+            ss = "\n" sprintf("%-" (s_newline_idx_origin-1) "s", "")
+            out = result
+            if (opv2 == "kv") { print keypath "\t-->\t" out }
             else if (opv2 == "k") { print keypath }
-            else  { print result }
+            else  { print out }
         }
     } else if (op == OP_FLAT) {
         print keypath "\t" result

@@ -27,6 +27,7 @@ yml.replace(){
     shift 2
     
     if [ "$varname" ]; then
+        #shellcheck disable=SC2034
         s="$(awk -v op=replace -v opv1="$opv1" -v opv2="$opv2" -f "$YML_AWK_PATH" <<<"${!varname}")"
         local code=$?
         if [ $code -eq 0 ]; then eval "$varname=\"\$s\""
