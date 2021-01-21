@@ -264,7 +264,10 @@ function yml_walk_value(keypath, indent,       ss, out, s_newline_idx_origin) {
             else  { print out }
         }
     } else if (op == OP_FLAT) {
-        print keypath "\t" result
+        ss = "\n" sprintf("%-" (s_newline_idx_origin-1) "s", "")
+        out = result
+        # TODO: We add \034 to indicate it is a key.
+        print "\034" keypath "\n" result
     } else if (op == OP_REPLACE) {
         if (match(keypath, opv1)){
             # Normally it should be only value.
