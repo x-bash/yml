@@ -153,12 +153,13 @@ function yml_walk_array(keypath, least_indent,
 
 # tmp1, tmp2, tmp3 are for putkv
 function yml_walk_dict(keypath, least_indent,
-    nth, o_idx, res, detected_indent, cur_keypath, cur_indent, result_key, result_colon, result_value, t0, t1, t2   ){
+    nth, o_idx, res, detected_indent, cur_keypath, cur_indent, result_key, result_colon, result_value, t0, t1, t2, tmp   ){
     nth = 0
     res = ""
 
     # Save first item index
     detected_indent = s_newline_idx - 1
+    if (detected_indent < least_indent) return false
         
     while (1) {
         # cur_indent?
@@ -181,9 +182,11 @@ function yml_walk_dict(keypath, least_indent,
             
         } else if (match(substr(s, s_idx), /^[^\n]+:[ \n]/)) {
             result = substr(s, s_idx, RLENGTH - 2)
+            gsub(/[\v\t\b ]+:[ \n]$/, "", result)
             VALUE = str_wrap(result)
-            s_idx += RLENGTH - 2
-            s_newline_idx += RLENGTH - 2
+            tmp = length(result)
+            s_idx += tmp
+            s_newline_idx += tmp
             
         } else {
             break
