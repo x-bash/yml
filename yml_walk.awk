@@ -97,11 +97,12 @@ function json_walk_empty0(   o_idx){
     return true
 }
 
-function yml_walk_string_idx(){
+function yml_walk_string(){
     # String with double quote: \\ -> \001\001,    \" -> \002\002  
     # TODO: Get rid of leading spaces and tailing spaces
     if (0 != match(substr(s, s_idx), /^"[^"]+"/)) {     #"
         result = substr(s, s_idx, s_idx + RLENGTH)
+        VALUE = result
         s_idx += RLENGTH
         s_newline_idx += RLENGTH # meaning less
         return true
@@ -111,11 +112,13 @@ function yml_walk_string_idx(){
     # TODO: Get rid of leading spaces and tailing spaces
     if (0 != match(substr(s, s_idx), /^('[^']')+/)) {
         result = substr(s, s_idx, s_idx + RLENGTH)
+        VALUE = "\"" yml_single_quote_unwrap(result) "\"" # Not sure
         s_idx += RLENGTH
         s_newline_idx += RLENGTH # meaning less
         return true
     }
 
+    return false
 }
 
 function yml_walk_array(keypath, least_indent,   
@@ -166,17 +169,22 @@ function yml_walk_dict(keypath, least_indent,
         }
 
         o_idx = s_idx
-        if (yml_walk_string_idx()) {
+
+        # Extract key
+        if (yml_walk_string()) {
             s_idx += RLENGTH
             s_newline_idx += RLENGTH
             if (false == match(substr(s, s_idx), /[ \t\b\v]*:[ \n]/)) {
                 # Will not be a string. Because parsing string before parsing dict
                 yml_walk_panic("yml_walk_dict")
             }
+            
         } else if (match(substr(s, s_idx), /^[^\n]+:[ \n]/)) {
-            # Extract key
+            result = substr(s, s_idx, RLENGTH - 2)
+            VALUE = str_wrap(result)
             s_idx += RLENGTH - 2
             s_newline_idx += RLENGTH - 2
+            
         } else {
             break
         }
@@ -184,12 +192,8 @@ function yml_walk_dict(keypath, least_indent,
         nth ++
 
         # result_key
-        result_key = substr(s, o_idx, s_idx - o_idx)
-
-        if (match(result_key, /^"/)) #"
-            cur_keypath = keypath KEYPATH_SEP result_key
-        else    # handle the single quote
-            cur_keypath = keypath KEYPATH_SEP str_wrap(result_key)
+        result_key = result
+        cur_keypath = keypath KEYPATH_SEP VALUE
 
         # Must following with ": "
         s_idx += 1
@@ -313,7 +317,7 @@ function _yml_walk_value(keypath, indent,    o_idx, o_idx_2, res, ss){
 
     # Must before array and dict
     o_idx = s_idx
-    if (yml_walk_string_idx()) {
+    if (yml_walk_string()) {
         if (out_color) result = out_color_string result out_color_end
         if (op == OP_FLAT_LEAF)  print keypath "\t" result
         # Make sure it is not a key-value pair.
