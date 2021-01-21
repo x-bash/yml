@@ -4,7 +4,6 @@ BEGIN{
     RS="\034"
 
     out_format = false
-    dbg = false
 
     KEYPATH_SEP = "\034"
     # KEYPATH_SEP = ","
@@ -19,6 +18,19 @@ BEGIN{
     if (out_color_true == 0)    out_color_true = "\033[7;32m"
     if (out_color_false == 0)   out_color_false = "\033[7;31m"
     out_color_end = "\033[0m"
+
+    OP_DEL          = 1
+    OP_LENGTH       = 2
+    OP_PUTVAL       = 3
+    OP_PUTKV        = 4
+    OP_PREPEND      = 5
+    OP_APPEND       = 6
+    OP_POP          = 7
+
+    OP_REPLACE      = 60
+    OP_EXTRACT      = 61
+    OP_FLAT         = 62
+    OP_FLAT_LEAF    = 63
 }
 
 function warn(msg){
@@ -32,6 +44,28 @@ function debug(msg){
 	print "idx[" s_idx "," s_newline_idx "]  DEBUG:" msg > "/dev/stderr"
 }
 
+function str_wrap(str){
+    gsub("\n", "\\n", str)
+    gsub("\v", "\\v", str)
+    gsub("\b", "\\b", str)
+    gsub("\t", "\\t", str)
+    return "\"" str "\""
+}
+
+function str_unwrap(){
+    gsub("\\n", "\n", str)
+    gsub("\\v", "\v", str)
+    gsub("\\b", "\b", str)
+    gsub("\\t", "\t", str)
+    return substr(str, 2, length(str) - 2)
+}
+
+function yml_single_quote_unwrap(){
+    gsub("\\", "\\\\", str)
+    gsub("''", "'", str)
+    return substr(str, 2, length(str) - 2)
+}
+
 function yml_walk_panic(msg,       start){
     start = s_idx - 10
     if (start <= 0) start = 1
@@ -39,7 +73,6 @@ function yml_walk_panic(msg,       start){
     print (msg " [index=" s_idx "," s_newline_idx "]:\n-------------------\n" substr(text, start, s_idx - start)  "|"  substr(text, s_idx, 1) "|" substr(text, s_idx+1, 30) "\n-------------------") > "/dev/stderr"
     exit 1
 }
-
 
 function json_walk_empty(   sw, o_idx, oo_idx){
     
@@ -117,7 +150,7 @@ function yml_walk_array(keypath, least_indent,
 
 # tmp1, tmp2, tmp3 are for putkv
 function yml_walk_dict(keypath, least_indent,
-    nth, o_idx, res, detected_indent, cur_indent, result_key, result_colon, result_value, t0, t1, t2   ){
+    nth, o_idx, res, detected_indent, cur_keypath, cur_indent, result_key, result_colon, result_value, t0, t1, t2   ){
     nth = 0
     res = ""
 
@@ -150,6 +183,10 @@ function yml_walk_dict(keypath, least_indent,
 
         # result_key
         result_key = substr(s, o_idx, s_idx - o_idx)
+        if (match(result_key, /^"/)) #"
+            cur_keypath = keypath KEYPATH_SEP result_key
+        else    # handle the single quote
+            cur_keypath = keypath KEYPATH_SEP str_wrap(result_key)
 
         # Must following with ": "
         s_idx += 1
@@ -157,7 +194,7 @@ function yml_walk_dict(keypath, least_indent,
 
         nth ++
         if (yml_reach_indent_boundary())    t1 = result
-        if (yml_walk_value(keypath KEYPATH_SEP result_key, detected_indent + 1) == true) {
+        if (yml_walk_value(cur_keypath, detected_indent + 1) == true) {
             result_value = result
         } else {
             # Value is null
@@ -211,8 +248,22 @@ function yml_reach_indent_boundary(     res){
 
 }
 
+# Intercept key value
+function yml_walk_value(keypath, indent) {
+    if (false == _yml_walk_value(keypath, indent)) return false
+    if (op == OP_EXTRACT) {
+        if (match(keypath, opv1)) {
+            print keypath "\t" result
+        }
+    } else if (op == OP_FLAT) {
+        print keypath "\t" result
+    }
+
+    return true
+}
+
 # TODO: make it better ... It will slow down the performance ...
-function yml_walk_value(keypath, indent,    o_idx, o_idx_2, res, ss){
+function _yml_walk_value(keypath, indent,    o_idx, o_idx_2, res, ss){
 
     if (s_newline_idx - 1 < indent) yml_walk_panic("Expect a value with accurate indent.\t" s_newline_idx "\t " indent "\t|" substr(s, s_idx, 10))
 
@@ -220,6 +271,7 @@ function yml_walk_value(keypath, indent,    o_idx, o_idx_2, res, ss){
     if (0 != match(substr(s, s_idx), /^[0-9]+/)) {
         result = substr(s, s_idx, RLENGTH)
         if (out_color) result = out_color_number result out_color_end
+        if (op == OP_FLAT_LEAF)  print keypath "\t" result
         s_idx += RLENGTH
         s_newline_idx += RLENGTH # meaning less
         return true
@@ -234,6 +286,7 @@ function yml_walk_value(keypath, indent,    o_idx, o_idx_2, res, ss){
             else if (match(ss, /false/)) result = out_color_true result out_color_end
             else if (match(ss, /(null)|~/)) result = out_color_true result out_color_end
         }
+        if (op == OP_FLAT_LEAF)  print keypath "\t" result
         s_idx += RLENGTH
         s_newline_idx += RLENGTH # meaning less
         return true
@@ -243,6 +296,7 @@ function yml_walk_value(keypath, indent,    o_idx, o_idx_2, res, ss){
     o_idx = s_idx
     if (yml_walk_string_idx()) {
         if (out_color) result = out_color_string result out_color_end
+        if (op == OP_FLAT_LEAF)  print keypath "\t" result
         # Make sure it is not a key-value pair.
         if (match(substr(s, s_idx), /^[ \t\b\v]+\n/))   {
             # s_newline_idx is wrong.
@@ -262,6 +316,7 @@ function yml_walk_value(keypath, indent,    o_idx, o_idx_2, res, ss){
     if (0 != match(substr(s, s_idx), /^[^\n]+\n/)) {
         result = substr(s, s_idx, RLENGTH - 1)
         if (out_color) result = out_color_string result out_color_end
+        if (op == OP_FLAT_LEAF)  print keypath "\t" result
         s_idx += RLENGTH - 1
         s_newline_idx += RLENGTH - 1 # meaning less
         debug("detect a NO-QUOTE STRING. " keypath)
@@ -358,6 +413,122 @@ function yml_walk(text_to_parsed,      final){
     return final
 }
 
+####### Code from x-bash/json
+function _query_(s,       KEYPATH_SEP,    arr, tmp, idx, n, item){
+    if (KEYPATH_SEP == 0) KEYPATH_SEP = "\034"
+
+    if (s == ".")  return "0"
+
+    s1 = s
+
+    gsub(/\\\\/, "\001\001", s)
+    gsub(/\\"/, "\002\002", s)  # "
+    gsub(/\\\./, "\003\003", s)
+
+    # gsub(/\./, "\034", s)
+    # gsub(/\./, "|", s) # for debug
+
+    n = split(s, arr, ".")
+    if (arr[1] == "") tmp = 0
+    else tmp = arr[1]
+    for (idx=2; idx<=n; idx ++) {
+        item = arr[idx]
+        if ( match( item, /\/[^\/]+\// ) ) {
+            tmp = tmp KEYPATH_SEP "\"(" substr(item, 2, length(item)-2) ")\""
+            # tmp = tmp KEYPATH_SEP substr(item, 2, length(item)-2)
+        } else if ( (match( item, /(^\[)|(^")|(^\*$)|(^\*\*$)/ ) == false) ) {   #"
+            tmp = tmp KEYPATH_SEP "\"" item "\""
+        } else {
+            tmp = tmp KEYPATH_SEP item
+        }
+    }
+    s = tmp
+
+    gsub("\003\003", ".", s)
+    gsub("\002\002", "\\\"", s)  # "
+    gsub("\001\001", "\\\\", s)
+
+    # gsub(/\*/, "[^|]+", s)   # for debug
+    # gsub(/\*\*/, "([^|]+|)*[^|]+", s)    # for debug
+
+    gsub(/\*/, "[^" KEYPATH_SEP "]+", s) #gsub(/\*/, "[^\034]+", s)
+    gsub(/\*\*/, "([^" KEYPATH_SEP "]+" KEYPATH_SEP ")*[^" KEYPATH_SEP "]+", s) # gsub(/\*\*/, "([^\034]+\034)*[^\034]+", s)
+
+    # gsub(/"[^"]+"/, "([^\034]+\034)*[^\034]+", s)   #"
+    return s
+}
+
+function query(s,       KEYPATH_SEP) {
+    return "^" _query_(s, KEYPATH_SEP) "$"
+}
+
+function query_split(formula, KEYPATH_SEP,    arr, len, final){
+    formula = _query_(formula, KEYPATH_SEP)
+    len = split(formula, arr, KEYPATH_SEP)
+    final = arr[1]
+    for (idx=2; idx<len; idx ++) {
+        final = final KEYPATH_SEP arr[idx]
+    }
+    QUERY_SPLIT_FA = "^" final "$"
+    QUERY_SPLIT_KEY = arr[len]
+    return true
+}
+####### Code from x-bash/json
+
 {
+    if (op == "extract") {
+        inner_content_generate = false
+        debug("op_original_pattern: " opv1)
+        opv1 = query(opv1, KEYPATH_SEP)
+        debug("op_pattern: " opv1)
+        op = OP_EXTRACT
+        yml_walk($0)
+        exit 0
+    }
+
+    if (op == "flat") {
+        op = OP_FLAT
+        if (opv1 == false)  KEYPATH_SEP = "\t"
+        else                KEYPATH_SEP = opv1
+        # out_color = false
+        yml_walk($0)
+        exit 0
+    }
+
+    if (op == "flat-leaf") {
+        op = OP_FLAT_LEAF
+        if (opv1 == false)      KEYPATH_SEP = "\t"
+        else                    KEYPATH_SEP = opv1
+        inner_content_generate = false
+
+        yml_walk($0)
+        exit 0
+    }
+
+    # If it is done, it will substitute the replace function.
+    if (op == "put") {
+        opv3 = opv2
+        query_split(opv1, KEYPATH_SEP)
+        opv1 = QUERY_SPLIT_FA
+        opv2 = QUERY_SPLIT_KEY
+
+        if (match(opv2, /^\[[0-9]+\]/)) {
+            opv2=int(substr(opv2, 2, length(opv2)-2))
+            op = OP_PUTVAL
+        } else {
+            op = OP_PUTKV
+            if (out_color) opv2bak = out_color_key opv2 "\033[0m"
+            else opv2bak = opv2
+        }
+
+        debug("op: " op)
+        debug("op_pattern: " opv1)
+        debug("op_key: " opv2)
+        debug("op_value: " opv3)
+        inner_content_generate = true
+        print json_walk($0)
+        exit 0
+    }
+
     print yml_walk($0)
 }
