@@ -257,6 +257,7 @@ function yml_reach_indent_boundary(     res){
         return true
     }
 
+    return false
 }
 
 # Intercept key value
