@@ -121,7 +121,7 @@ function yml_walk_string_idx(){
 function yml_walk_array(keypath, least_indent,   
     res, nth, detected_indent, cur_indent, result_value){
 
-    nth = 0
+    nth = -1
     res = ""
 
     detected_indent = s_newline_idx - 1
@@ -143,7 +143,7 @@ function yml_walk_array(keypath, least_indent,
         if (yml_reach_indent_boundary()) res = res result
     }
 
-    if (nth == 0) return false
+    if (nth == -1) return false
     result = res
     return true
 }
@@ -181,8 +181,11 @@ function yml_walk_dict(keypath, least_indent,
             break
         }
 
+        nth ++
+
         # result_key
         result_key = substr(s, o_idx, s_idx - o_idx)
+
         if (match(result_key, /^"/)) #"
             cur_keypath = keypath KEYPATH_SEP result_key
         else    # handle the single quote
@@ -192,7 +195,6 @@ function yml_walk_dict(keypath, least_indent,
         s_idx += 1
         s_newline_idx += 1
 
-        nth ++
         if (yml_reach_indent_boundary())    t1 = result
         if (yml_walk_value(cur_keypath, detected_indent + 1) == true) {
             result_value = result
@@ -251,12 +253,22 @@ function yml_reach_indent_boundary(     res){
 # Intercept key value
 function yml_walk_value(keypath, indent) {
     if (false == _yml_walk_value(keypath, indent)) return false
+
     if (op == OP_EXTRACT) {
         if (match(keypath, opv1)) {
-            print keypath "\t" result
+            if (opv2 == "kv") { print keypath "\t-->\t" result }
+            else if (opv2 == "k") { print keypath }
+            else  { print result }
         }
     } else if (op == OP_FLAT) {
         print keypath "\t" result
+    } else if (op == OP_REPLACE) {
+        if (match(keypath, opv1)){
+            # Normally it should be only value.
+            result = opv2
+            # result = json_walk(opv2, indent)
+            return true
+        }
     }
 
     return true
@@ -482,6 +494,7 @@ function query_split(formula, KEYPATH_SEP,    arr, len, final){
         opv1 = query(opv1, KEYPATH_SEP)
         debug("op_pattern: " opv1)
         op = OP_EXTRACT
+        if (color == false) out_color = false
         yml_walk($0)
         exit 0
     }
@@ -505,7 +518,17 @@ function query_split(formula, KEYPATH_SEP,    arr, len, final){
         exit 0
     }
 
+    if (op == "replace") {
+        op = OP_REPLACE
+        opv1 = query(opv1, KEYPATH_SEP)
+        # opv2 = json_walk(opv2)
+        debug("op_pattern: " opv1)
+        print yml_walk($0)
+        exit 0
+    }
+
     # If it is done, it will substitute the replace function.
+    # TODO: Not support yet.
     if (op == "put") {
         opv3 = opv2
         query_split(opv1, KEYPATH_SEP)
@@ -526,7 +549,7 @@ function query_split(formula, KEYPATH_SEP,    arr, len, final){
         debug("op_key: " opv2)
         debug("op_value: " opv3)
         inner_content_generate = true
-        print json_walk($0)
+        print yml_walk($0)
         exit 0
     }
 

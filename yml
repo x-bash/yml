@@ -1,9 +1,38 @@
 # shellcheck shell=bash
 
-yml.extract(){
-    :
+# YML_AWK_PATH="$(xrc.which yml/yml_walk.awk)"
+YML_AWK_PATH="./yml_walk.awk"
+
+yml.query(){
+    local keypath=${1:?Provide variable name} opv1 varname s
+
+    varname=${keypath%%.*}
+    opv1=".${keypath#*.}"
+    [ "$varname" == "$keypath" ] && opv1="."
+    shift 2
+
+    if [ "$varname" ]; then
+        awk -v op=extract -v opv1="$opv1" -f "$YML_AWK_PATH" <<<"${!varname}"
+    else
+        awk -v op=extract -v opv1="$opv1" -f "$YML_AWK_PATH" -
+    fi
 }
 
 yml.replace(){
-    :
+    local keypath=${1:?Provide variable name} opv1 opv2="${2:?Provide value}" varname s
+
+    varname=${keypath%%.*}
+    opv1=".${keypath#*.}"
+    [ "$varname" == "$keypath" ] && opv1="."
+    shift 2
+    
+    if [ "$varname" ]; then
+        s="$(awk -v op=replace -v opv1="$opv1" -v opv2="$opv2" -f "$YML_AWK_PATH" <<<"${!varname}")"
+        local code=$?
+        if [ $code -eq 0 ]; then eval "$varname=\"\$s\""
+        else return 1;  fi
+    else
+        awk -v op=replace -v opv1="$opv1" -v opv2="$opv2" -f "$YML_AWK_PATH" -
+    fi
+    
 }
