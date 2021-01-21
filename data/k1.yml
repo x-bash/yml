@@ -12,7 +12,7 @@ spec:
       image: nginx
       ports:
         - containerPort: 80
-    - name: rss-reader
-      image: nickchase/rss-php-nginx:v1
-      ports:
-        - containerPort: 88
+    -   name: rss-reader
+        image: nickchase/rss-php-nginx:v1
+        ports:
+          - containerPort: 88

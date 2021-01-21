@@ -122,7 +122,7 @@ function yml_walk_string(){
 }
 
 function yml_walk_array(keypath, least_indent,   
-    res, nth, detected_indent, cur_indent, result_value){
+    res, nth, detected_indent, cur_indent, result_value, t1){
 
     nth = -1
     res = ""
@@ -136,13 +136,15 @@ function yml_walk_array(keypath, least_indent,
         s_idx += 2
         s_newline_idx += 2
 
+        if (yml_reach_indent_boundary()) t1 = result
+
         nth ++
         yml_walk_value(keypath KEYPATH_SEP nth, detected_indent + 1)
         result_value = result
 
         # if (nth > 0) res = res "\n"
         # res = res sprintf("%-" detected_indent "s", "") "- " result
-        res = res "- " result_value
+        res = res "- " t1 result_value
         if (yml_reach_indent_boundary()) res = res result
     }
 
@@ -269,7 +271,7 @@ function yml_walk_value(keypath, indent,       ss, out, s_newline_idx_origin) {
             gsub(ss, "\n", out)
             if (opv2 == "kv") { print keypath "\t-->\t" out }
             else if (opv2 == "k") { print keypath }
-            else  { print out }
+            else  { print result }
         }
     } else if (op == OP_FLAT) {
         ss = "\n" sprintf("%-" (s_newline_idx_origin-1) "s", "")
