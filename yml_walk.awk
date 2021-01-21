@@ -8,6 +8,17 @@ BEGIN{
 
     KEYPATH_SEP = "\034"
     # KEYPATH_SEP = ","
+
+    out_color = true
+    if (color != false)     out_color = true
+
+    if (out_color_key == 0)     out_color_key = "\033[0;35m"
+    if (out_color_string == 0)  out_color_string = "\033[0;34m"
+    if (out_color_number == 0)  out_color_number = "\033[0;32m"
+    if (out_color_null == 0)    out_color_null = "\033[0;33m"   # "\033[0;31m"
+    if (out_color_true == 0)    out_color_true = "\033[7;32m"
+    if (out_color_false == 0)   out_color_false = "\033[7;31m"
+    out_color_end = "\033[0m"
 }
 
 function warn(msg){
@@ -75,7 +86,7 @@ function yml_walk_string_idx(){
 }
 
 function yml_walk_array(keypath, least_indent,   
-    res, nth, detected_indent, cur_indent){
+    res, nth, detected_indent, cur_indent, result_value){
 
     nth = 0
     res = ""
@@ -91,10 +102,11 @@ function yml_walk_array(keypath, least_indent,
 
         nth ++
         yml_walk_value(keypath KEYPATH_SEP nth, detected_indent + 1)
+        result_value = result
 
         # if (nth > 0) res = res "\n"
         # res = res sprintf("%-" detected_indent "s", "") "- " result
-        res = res "- " result
+        res = res "- " result_value
         if (yml_reach_indent_boundary()) res = res result
     }
 
@@ -156,6 +168,7 @@ function yml_walk_dict(keypath, least_indent,
         if (yml_reach_newline())            t2 = result
         if (yml_reach_indent_boundary())    t2 = t2 result  # Make sure s_newline_idx could be done.
 
+        if (out_color) result_key = out_color_key result_key out_color_end
         res = res result_key ":" t1 result_value t2
     }
 
@@ -199,21 +212,28 @@ function yml_reach_indent_boundary(     res){
 }
 
 # TODO: make it better ... It will slow down the performance ...
-function yml_walk_value(keypath, indent,    o_idx, o_idx_2, res){
+function yml_walk_value(keypath, indent,    o_idx, o_idx_2, res, ss){
 
     if (s_newline_idx - 1 < indent) yml_walk_panic("Expect a value with accurate indent.\t" s_newline_idx "\t " indent "\t|" substr(s, s_idx, 10))
 
     # Number
     if (0 != match(substr(s, s_idx), /^[0-9]+/)) {
         result = substr(s, s_idx, RLENGTH)
+        if (out_color) result = out_color_number result out_color_end
         s_idx += RLENGTH
         s_newline_idx += RLENGTH # meaning less
         return true
     }
 
     # Primitive
-    if (0 != match(substr(s, s_idx, 6), /^(true)|(false)|(null)|(~)/)) {
+    ss = substr(s, s_idx, 6)
+    if (0 != match(ss, /^(true)|(false)|(null)|(~)/)) {
         result = substr(s, s_idx, RLENGTH)
+        if (out_color) {
+            if (match(ss, /true/)) result = out_color_true result out_color_end
+            else if (match(ss, /false/)) result = out_color_true result out_color_end
+            else if (match(ss, /(null)|~/)) result = out_color_true result out_color_end
+        }
         s_idx += RLENGTH
         s_newline_idx += RLENGTH # meaning less
         return true
@@ -222,6 +242,7 @@ function yml_walk_value(keypath, indent,    o_idx, o_idx_2, res){
     # Must before array and dict
     o_idx = s_idx
     if (yml_walk_string_idx()) {
+        if (out_color) result = out_color_string result out_color_end
         # Make sure it is not a key-value pair.
         if (match(substr(s, s_idx), /^[ \t\b\v]+\n/))   {
             # s_newline_idx is wrong.
@@ -231,9 +252,7 @@ function yml_walk_value(keypath, indent,    o_idx, o_idx_2, res){
         s_idx = o_idx
     }
 
-
     if (true == yml_walk_array( keypath, indent ))    return true
-
     if (true == yml_walk_dict(  keypath, indent )) {
         return true
     }
@@ -242,6 +261,7 @@ function yml_walk_value(keypath, indent,    o_idx, o_idx_2, res){
     # TODO: Get rid of leading spaces and tailing spaces
     if (0 != match(substr(s, s_idx), /^[^\n]+\n/)) {
         result = substr(s, s_idx, RLENGTH - 1)
+        if (out_color) result = out_color_string result out_color_end
         s_idx += RLENGTH - 1
         s_newline_idx += RLENGTH - 1 # meaning less
         debug("detect a NO-QUOTE STRING. " keypath)
@@ -276,7 +296,6 @@ function yml_walk_dot3(     sss){
 function _yml_walk(         final, o_idx, nth, empty1, value_result, empty2){
 
     final = ""
-
     nth = 0
 
     # TODO: hyphen plus spaces
