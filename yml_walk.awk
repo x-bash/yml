@@ -292,9 +292,9 @@ function yml_walk_value(keypath, indent,       ss, out, s_newline_idx_origin) {
 }
 
 # TODO: make it better ... It will slow down the performance ...
-function _yml_walk_value(keypath, indent,    o_idx, o_idx_2, res, ss){
+function _yml_walk_value(keypath, least_indent,    o_idx, o_idx_2, res, ss){
 
-    if (s_newline_idx - 1 < indent) yml_walk_panic("Expect a value with accurate indent.\t" s_newline_idx "\t " indent "\t|" substr(s, s_idx, 10))
+    if (s_newline_idx - 1 < least_indent) yml_walk_panic("Expect a value with accurate indent.\t" s_newline_idx "\t " least_indent "\t|" substr(s, s_idx, 10))
 
     # Number
     if (0 != match(substr(s, s_idx), /^[0-9]+/)) {
@@ -335,8 +335,8 @@ function _yml_walk_value(keypath, indent,    o_idx, o_idx_2, res, ss){
         s_idx = o_idx
     }
 
-    if (true == yml_walk_array( keypath, indent ))    return true
-    if (true == yml_walk_dict(  keypath, indent )) {
+    if (true == yml_walk_array( keypath, least_indent ))    return true
+    if (true == yml_walk_dict(  keypath, least_indent )) {
         return true
     }
 
