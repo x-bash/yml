@@ -74,29 +74,6 @@ function yml_walk_panic(msg,       start){
     exit 1
 }
 
-function json_walk_empty(   sw, o_idx, oo_idx){
-    
-    return sw
-}
-
-function json_walk_comment(     ss, pos){
-    
-    return false
-}
-
-function json_walk_empty0(   o_idx){
-    # if (substr(s, s_idx, 1) != " ") return false
-    match(substr(s, s_idx, 16), /^[ \n]+/)
-    if (RLENGTH <= 0) return false
-    o_idx = s_idx
-    if (RLENGTH == 16) {   
-        s_idx += 16
-        match(substr(s, s_idx), /^[ \n]+/)
-    }
-    if (RLENGTH > 0) s_idx += RLENGTH
-    return true
-}
-
 function yml_walk_string(){
     # String with double quote: \\ -> \001\001,    \" -> \002\002  
     # TODO: Get rid of leading spaces and tailing spaces
@@ -128,11 +105,15 @@ function yml_walk_array(keypath, least_indent,
     res = ""
 
     detected_indent = s_newline_idx - 1
+    if (detected_indent < least_indent) return false
+
     while (1) {
         if (match(substr(s, s_idx), /^- /) == false) break
         cur_indent = s_newline_idx - 1
-        if (cur_indent < least_indent)  break
+        # if (cur_indent < least_indent)  break
+        if (cur_indent != detected_indent) break
 
+        # "- "
         s_idx += 2
         s_newline_idx += 2
 
@@ -166,10 +147,7 @@ function yml_walk_dict(keypath, least_indent,
     while (1) {
         # cur_indent?
         cur_indent = s_newline_idx - 1
-
-        if (cur_indent != detected_indent) {
-            break
-        }
+        if (cur_indent != detected_indent) break
 
         o_idx = s_idx
 
@@ -297,7 +275,18 @@ function _yml_walk_value(keypath, least_indent,    o_idx, o_idx_2, res, ss){
     if (s_newline_idx - 1 < least_indent) yml_walk_panic("Expect a value with accurate indent.\t" s_newline_idx "\t " least_indent "\t|" substr(s, s_idx, 10))
 
     # Number
-    if (0 != match(substr(s, s_idx), /^[0-9]+/)) {
+    # TODO: Decimal
+
+    # /[-+]?(\.[0-9]+|[0-9]+(\.[0-9]*)?)([eE][-+]?[0-9]+)?/
+    # /[-+]?(\.inf|\.Inf|\.INF)/
+    # /\.nan|\.NaN|\.NAN/
+    # 0o[0-7]+
+    # 0x[0-9a-fA-F]+
+
+    # /([-+]?((\.[0-9]+|[0-9]+(\.[0-9]*)?)([eE][-+]?[0-9]+)?)|\.inf|\.Inf|\.INF))|\.nan|\.NaN|\.NAN|(0o[0-7]+)|(0x[0-9a-fA-F]+)/
+    # /^[0-9]+/
+    if (0 != match(substr(s, s_idx), /([-+]?((\.[0-9]+|[0-9]+(\.[0-9]*)?)([eE][-+]?[0-9]+)?)|\.inf|\.Inf|\.INF))|\.nan|\.NaN|\.NAN|(0o[0-7]+)|(0x[0-9a-fA-F]+)/)) {
+    # if (0 != match(substr(s, s_idx), /^[0-9]+/)) {
         result = substr(s, s_idx, RLENGTH)
         if (out_color) result = out_color_number result out_color_end
         if (op == OP_FLAT_LEAF)  print keypath "\t" result
@@ -308,12 +297,12 @@ function _yml_walk_value(keypath, least_indent,    o_idx, o_idx_2, res, ss){
 
     # Primitive
     ss = substr(s, s_idx, 6)
-    if (0 != match(ss, /^(true)|(false)|(null)|(~)/)) {
+    if (0 != match(ss, /^(true)|(false)|(null)|(~)|(NULL)|(Null)/)) {
         result = substr(s, s_idx, RLENGTH)
         if (out_color) {
             if (match(ss, /true/)) result = out_color_true result out_color_end
             else if (match(ss, /false/)) result = out_color_true result out_color_end
-            else if (match(ss, /(null)|~/)) result = out_color_true result out_color_end
+            else if (match(ss, /(null)|(~)|(NULL)|(Null)/)) result = out_color_true result out_color_end
         }
         if (op == OP_FLAT_LEAF)  print keypath "\t" result
         s_idx += RLENGTH

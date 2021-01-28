@@ -35,5 +35,4 @@ yml.replace(){
     else
         awk -v op=replace -v opv1="$opv1" -v opv2="$opv2" -f "$YML_AWK_PATH" -
     fi
-    
 }
